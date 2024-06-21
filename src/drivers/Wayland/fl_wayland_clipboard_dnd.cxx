@@ -77,8 +77,8 @@ void write_data_source_cb(FL_SOCKET fd, data_source_write_struct *data) {
 static void data_source_handle_send(void *data, struct wl_data_source *source,
                                     const char *mime_type, int fd) {
   fl_intptr_t rank = (fl_intptr_t)data;
-//fprintf(stderr, "data_source_handle_send: %s fd=%d l=%d\n", mime_type, fd, fl_selection_length[1]);
-  if (((!strcmp(mime_type, wld_plain_text_clipboard) || !strcmp(mime_type, "text/plain")) &&
+  fprintf(stderr, "data_source_handle_send: %s fd=%d l=%d\n", mime_type, fd, fl_selection_length[1]);
+  if (((!strcmp(mime_type, wld_plain_text_clipboard) || !strcmp(mime_type, "text/plain") || !strcmp(mime_type, "text/uri-list")) &&
        fl_selection_type[rank] == Fl::clipboard_plain_text)
       ||
     (!strcmp(mime_type, "image/bmp") && fl_selection_type[rank] == Fl::clipboard_image) ) {
@@ -247,7 +247,25 @@ int Fl_Wayland_Screen_Driver::dnd(int use_selection) {
     wl_data_device_manager_create_data_source(scr_driver->seat->data_device_manager);
   // we transmit the adequate value of index in fl_selection_buffer[index]
   wl_data_source_add_listener(source, &data_source_listener, (void*)0);
-  wl_data_source_offer(source, wld_plain_text_clipboard);
+
+  if ((!strncmp(fl_selection_buffer[0], "file:///", 8) ||
+      !strncmp(fl_selection_buffer[0], "ftp://", 6) ||
+      !strncmp(fl_selection_buffer[0], "http://", 7) ||
+      !strncmp(fl_selection_buffer[0], "https://", 8) ||
+      !strncmp(fl_selection_buffer[0], "ipp://", 6) ||
+      !strncmp(fl_selection_buffer[0], "ldap:", 5) ||
+      !strncmp(fl_selection_buffer[0], "mailto:", 7) ||
+      !strncmp(fl_selection_buffer[0], "news:", 5) ||
+      !strncmp(fl_selection_buffer[0], "smb://", 6)) &&
+    !strchr(fl_selection_buffer[0], ' ') &&
+    strstr(fl_selection_buffer[0], "\r\n")) {
+    // Offer file/URI list...
+    wl_data_source_offer(source, "text/uri-list");
+  } else {
+    // Offer plain text...
+    wl_data_source_offer(source, wld_plain_text_clipboard);
+  }
+
   wl_data_source_set_actions(source, WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
   struct Fl_Wayland_Graphics_Driver::wld_buffer *off = NULL;
   int s = 1;
