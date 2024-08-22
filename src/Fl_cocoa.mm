@@ -1056,7 +1056,6 @@ static void cocoaMouseHandler(NSEvent *theEvent)
     fl_unlock_function();
     return;
   }
-  Fl_Window *first = Fl::first_window();
   NSPoint pos = [theEvent locationInWindow];
   float s = Fl::screen_driver()->scale(0);
   pos.x /= s; pos.y /= s;
@@ -2386,7 +2385,7 @@ static FLTextInputContext* fltextinputcontext_instance = nil;
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_14
       if (views_use_CA && !window->as_gl_window() ) {
         [self reset_aux_bitmap];
-        [self display];
+        window->redraw();
       }
 #endif
     }

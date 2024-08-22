@@ -54,6 +54,11 @@ int Fl_Widget_Type::is_widget() const {return 1;}
 int Fl_Widget_Type::is_public() const {return public_;}
 
 const char* subclassname(Fl_Type* l) {
+  if (l->is_a(ID_Menu_Bar)) {
+    Fl_Menu_Bar_Type *mb = static_cast<Fl_Menu_Bar_Type*>(l);
+    if (mb->is_sys_menu_bar())
+      return mb->sys_menubar_name();
+  }
   if (l->is_widget()) {
     Fl_Widget_Type* p = (Fl_Widget_Type*)l;
     const char* c = p->subclass();
@@ -1962,6 +1967,35 @@ void textcolor_menu_cb(Fl_Menu_Button* i, void* v) {
   }
 }
 
+void image_spacing_cb(Fl_Value_Input* i, void* v) {
+  int s;
+  if (v == LOAD) {
+    if (!current_widget->is_true_widget()) {
+      i->deactivate();
+      i->value(0);
+    } else {
+      i->activate();
+      i->value(((Fl_Widget_Type*)current_widget)->o->label_image_spacing());
+    }
+  } else {
+    int mod = 0;
+    s = int(i->value());
+    for (Fl_Type *o = Fl_Type::first; o; o = o->next) {
+      if (o->selected && o->is_true_widget()) {
+        Fl_Widget_Type* q = (Fl_Widget_Type*)o;
+        if (q->o->label_image_spacing() != s) {
+          q->o->label_image_spacing(s);
+          if (q->o->parent())
+            q->o->parent()->damage(FL_DAMAGE_EXPOSE); // outside labels
+          q->o->redraw();
+          mod = 1;
+        }
+      }
+    }
+    if (mod) set_modflag(1);
+  }
+}
+
 ////////////////////////////////////////////////////////////////
 // Kludges to the panel for subclasses:
 
@@ -2991,6 +3025,12 @@ void Fl_Widget_Type::write_code1(Fd_Code_Writer& f) {
       f.write_c("new %s(0, 0, %d, %d", t, o->w(), o->h());
     else
       f.write_c("new %s(%d, %d", t, o->w(), o->h());
+  } else if (is_a(ID_Menu_Bar)
+             && ((Fl_Menu_Bar_Type*)this)->is_sys_menu_bar()
+             && is_in_class()) {
+    f.write_c("(%s*)new %s(%d, %d, %d, %d",
+              t, ((Fl_Menu_Bar_Type*)this)->sys_menubar_proxy_name(),
+              o->x(), o->y(), o->w(), o->h());
   } else {
     f.write_c("new %s(%d, %d, %d, %d", t, o->x(), o->y(), o->w(), o->h());
   }
@@ -3357,6 +3397,8 @@ void Fl_Widget_Type::write_properties(Fd_Project_Writer &f) {
     f.write_string("labelcolor %d", o->labelcolor());
   if (o->align()!=tplate->align())
     f.write_string("align %d", o->align());
+  if (o->label_image_spacing()!=tplate->label_image_spacing())
+    f.write_string("image_spacing %d", o->label_image_spacing());
   if (o->when() != tplate->when())
     f.write_string("when %d", o->when());
   if (is_a(ID_Valuator_)) {
@@ -3526,6 +3568,8 @@ void Fl_Widget_Type::read_property(Fd_Project_Reader &f, const char *c) {
     if (sscanf(f.read_word(),"%d",&x) == 1) o->labelcolor(x);
   } else if (!strcmp(c,"align")) {
     if (sscanf(f.read_word(),"%d",&x) == 1) o->align(x);
+  } else if (!strcmp(c,"image_spacing")) {
+    if (sscanf(f.read_word(),"%d",&x) == 1) o->label_image_spacing(x);
   } else if (!strcmp(c,"when")) {
     if (sscanf(f.read_word(),"%d",&x) == 1) o->when(x);
   } else if (!strcmp(c,"minimum")) {
